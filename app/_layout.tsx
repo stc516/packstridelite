@@ -1,6 +1,6 @@
 import '../global.css';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -14,6 +14,7 @@ function AuthGate() {
   const { session, initialized, setSession, setInitialized } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
+  const [hasProfile, setHasProfile] = useState<boolean | null>(null);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
@@ -24,14 +25,60 @@ function AuthGate() {
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
+
+    async function checkProfile() {
+      if (!session) {
+        if (isMounted) setHasProfile(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (!isMounted) return;
+
+      if (error) {
+        setHasProfile(false);
+        return;
+      }
+
+      setHasProfile(Boolean(data?.id));
+    }
+
+    checkProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [session?.user.id]);
+
+  useEffect(() => {
     if (!initialized) return;
+
     const inAuth = segments[0] === '(auth)';
-    if (!session && !inAuth) {
-      router.replace('/(auth)/login');
-    } else if (session && inAuth) {
+    const inTabs = segments[0] === '(tabs)';
+    const inOnboarding = segments[0] === 'onboarding';
+
+    if (!session) {
+      if (!inAuth) router.replace('/(auth)/login');
+      return;
+    }
+
+    if (hasProfile === null) return;
+
+    if (!hasProfile && !inOnboarding) {
+      router.replace('/onboarding');
+      return;
+    }
+
+    if (hasProfile && (inAuth || inOnboarding || !inTabs)) {
       router.replace('/(tabs)');
     }
-  }, [session, initialized, segments]);
+  }, [session, initialized, segments, hasProfile]);
 
   return null;
 }
@@ -59,6 +106,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="(auth)" />
+        <Stack.Screen name="onboarding" />
       </Stack>
       <AuthGate />
     </>
