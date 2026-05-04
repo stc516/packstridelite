@@ -1,8 +1,14 @@
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Svg, Circle } from 'react-native-svg';
+import { Link } from 'expo-router';
 import DogAvatarGroup from '@/components/DogAvatarGroup';
 import Colors from '@/constants/colors';
+import { adventureProgramsById } from '@/data/adventurePrograms';
+import { trainingProgramsById } from '@/data/trainingPrograms';
+import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/store/authStore';
 
 // ── mock data ──────────────────────────────────────────────────────────────
 const USER_NAME = 'Stephen';
@@ -12,10 +18,24 @@ const DOGS = [
   { name: 'Meiomi' },
   { name: 'Monte' },
 ];
-const MISSIONS = [
+const DEFAULT_MISSIONS = [
   { id: '1', title: '30-min trail walk', xp: 50, done: false },
   { id: '2', title: 'Log Bailey meal', xp: 20, done: false },
 ];
+
+type UserProgramRow = {
+  id: string;
+  program_id: string;
+  program_type: 'adventure' | 'training';
+  current_day: number;
+};
+
+type TodayMission = {
+  id: string;
+  title: string;
+  xp: number;
+  done: boolean;
+};
 
 // ── streak ring ────────────────────────────────────────────────────────────
 const RING_SIZE = 120;
@@ -101,6 +121,78 @@ function XpBadge({ xp }: { xp: number }) {
 
 // ── main screen ───────────────────────────────────────────────────────────
 export default function TodayScreen() {
+  const session = useAuthStore((state) => state.session);
+  const [programRows, setProgramRows] = useState<UserProgramRow[]>([]);
+  const [programError, setProgramError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadProgramMissions() {
+      if (!session?.user.id) {
+        if (active) {
+          setProgramRows([]);
+          setProgramError(null);
+        }
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('user_programs')
+        .select('id, program_id, program_type, current_day')
+        .eq('user_id', session.user.id)
+        .is('completed_at', null)
+        .order('started_at', { ascending: false });
+
+      if (!active) return;
+
+      if (error) {
+        setProgramError(error.message);
+        setProgramRows([]);
+        return;
+      }
+
+      setProgramError(null);
+      setProgramRows((data ?? []) as UserProgramRow[]);
+    }
+
+    loadProgramMissions();
+
+    return () => {
+      active = false;
+    };
+  }, [session?.user.id]);
+
+  const missions = useMemo<TodayMission[]>(() => {
+    const enrolledMissions: TodayMission[] = [];
+
+    for (const row of programRows) {
+      if (row.program_type === 'adventure') {
+        const program = adventureProgramsById[row.program_id];
+        const mission = program?.daily_missions.find((item) => item.day === row.current_day);
+        if (!program || !mission) continue;
+        enrolledMissions.push({
+          id: `up-${row.id}-day-${mission.day}`,
+          title: `${program.title}: ${mission.title}`,
+          xp: mission.xp,
+          done: false,
+        });
+      } else {
+        const program = trainingProgramsById[row.program_id];
+        const lesson = program?.daily_lessons.find((item) => item.day === row.current_day);
+        if (!program || !lesson) continue;
+        enrolledMissions.push({
+          id: `up-${row.id}-day-${lesson.day}`,
+          title: `${program.title}: ${lesson.title}`,
+          xp: lesson.xp,
+          done: false,
+        });
+      }
+    }
+
+    return enrolledMissions.length > 0 ? enrolledMissions : DEFAULT_MISSIONS;
+  }, [programRows]);
+
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
@@ -144,11 +236,25 @@ export default function TodayScreen() {
         </View>
 
         {/* daily missions */}
-        <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 17, color: Colors.navy, marginBottom: 12 }}>
-          Daily Missions
-        </Text>
+        <View className="flex-row items-center justify-between mb-3">
+          <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 17, color: Colors.navy }}>
+            Daily Missions
+          </Text>
+          <Link href="/programs" asChild>
+            <TouchableOpacity activeOpacity={0.75}>
+              <Text style={{ fontFamily: 'Outfit_500Medium', fontSize: 13, color: Colors.ocean }}>
+                Browse Programs
+              </Text>
+            </TouchableOpacity>
+          </Link>
+        </View>
+        {programError && (
+          <Text style={{ fontFamily: 'Outfit_400Regular', fontSize: 12, color: '#C0392B', marginBottom: 10 }}>
+            {programError}
+          </Text>
+        )}
         <View className="gap-3">
-          {MISSIONS.map((mission) => (
+          {missions.map((mission) => (
             <TouchableOpacity
               key={mission.id}
               activeOpacity={0.75}

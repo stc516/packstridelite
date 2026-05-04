@@ -107,6 +107,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="onboarding" />
+        <Stack.Screen name="programs" />
         <Stack.Screen name="train/[moduleSlug]" />
       </Stack>
       <AuthGate />
