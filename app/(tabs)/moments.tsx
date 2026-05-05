@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import DogAvatar from '@/components/DogAvatar';
 import Colors from '@/constants/colors';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
+import { PRIMARY_BUTTON } from '@/constants/primaryButton';
 
 type AdventureRow = {
   id: string;
@@ -21,15 +22,14 @@ type AdventureRow = {
   } | null;
 };
 
-type AdventureQueryRow = {
-  id: string;
-  title: string;
-  notes: string | null;
-  distance_miles: number | null;
-  duration_minutes: number | null;
-  logged_at: string;
-  dogs: { name: string; avatar_url: string | null }[] | null;
-};
+type DogEmbed = { name: string; avatar_url: string | null };
+
+function normalizeDogEmbed(
+  dog: DogEmbed | DogEmbed[] | null | undefined
+): DogEmbed | null {
+  if (dog == null) return null;
+  return Array.isArray(dog) ? dog[0] ?? null : dog;
+}
 
 function formatRelativeTime(input: string): string {
   const now = new Date();
@@ -49,6 +49,7 @@ function formatRelativeTime(input: string): string {
 
 export default function MomentsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const session = useAuthStore((state) => state.session);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +72,7 @@ export default function MomentsScreen() {
 
       const { data, error: adventuresError } = await supabase
         .from('adventures')
-        .select('id, title, notes, distance_miles, duration_minutes, logged_at, dogs(name, avatar_url)')
+        .select('id, title, notes, distance_miles, duration_minutes, logged_at, dog:dogs(name, avatar_url)')
         .eq('user_id', session.user.id)
         .order('logged_at', { ascending: false });
 
@@ -83,14 +84,22 @@ export default function MomentsScreen() {
         return;
       }
 
-      const normalized = ((data ?? []) as AdventureQueryRow[]).map((row) => ({
+      const normalized = (data ?? []).map((row: {
+        id: string;
+        title: string;
+        notes: string | null;
+        distance_miles: number | null;
+        duration_minutes: number | null;
+        logged_at: string;
+        dog: DogEmbed | DogEmbed[] | null;
+      }) => ({
         id: row.id,
         title: row.title,
         notes: row.notes,
         distance_miles: row.distance_miles,
         duration_minutes: row.duration_minutes,
         logged_at: row.logged_at,
-        dog: row.dogs?.[0] ?? null,
+        dog: normalizeDogEmbed(row.dog),
       }));
 
       setAdventures(normalized);
@@ -109,7 +118,12 @@ export default function MomentsScreen() {
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: Colors.snow }}>
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 100 }}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingTop: 16,
+          paddingBottom: Math.max(insets.bottom + 100, 120),
+        }}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 24, color: Colors.navy, marginBottom: 4 }}>
@@ -185,27 +199,28 @@ export default function MomentsScreen() {
         )}
       </ScrollView>
 
-      <Pressable
+      <TouchableOpacity
         onPress={() => router.push('/(tabs)/log')}
-        style={({ pressed }) => ({
-          position: 'absolute',
-          right: 22,
-          bottom: 28,
-          width: 58,
-          height: 58,
-          borderRadius: 29,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: pressed ? '#152E4A' : Colors.ocean,
-          shadowColor: '#000',
-          shadowOpacity: 0.2,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 4 },
-          elevation: 6,
-        })}
+        activeOpacity={0.85}
+        style={[
+          PRIMARY_BUTTON,
+          {
+            position: 'absolute',
+            right: 22,
+            bottom: Math.max(insets.bottom + 16, 28),
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            shadowColor: '#000',
+            shadowOpacity: 0.2,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 6,
+          },
+        ]}
       >
-        <Text style={{ fontFamily: 'Nunito_700Bold', color: Colors.white, fontSize: 30, lineHeight: 34 }}>+</Text>
-      </Pressable>
+        <Text style={{ fontFamily: 'Nunito_700Bold', color: Colors.white, fontSize: 28, lineHeight: 32 }}>+</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }

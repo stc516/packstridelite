@@ -5,6 +5,7 @@ import { Svg, Circle } from 'react-native-svg';
 import { Link } from 'expo-router';
 import DogAvatarGroup from '@/components/DogAvatarGroup';
 import Colors from '@/constants/colors';
+import { PRIMARY_BUTTON, PRIMARY_BUTTON_TEXT } from '@/constants/primaryButton';
 import { adventureProgramsById } from '@/data/adventurePrograms';
 import { trainingProgramsById } from '@/data/trainingPrograms';
 import { supabase } from '@/lib/supabase';
@@ -201,6 +202,7 @@ export default function TodayScreen() {
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {/* header */}
@@ -236,18 +238,14 @@ export default function TodayScreen() {
         </View>
 
         {/* daily missions */}
-        <View className="flex-row items-center justify-between mb-3">
-          <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 17, color: Colors.navy }}>
-            Daily Missions
-          </Text>
-          <Link href="/programs" asChild>
-            <TouchableOpacity activeOpacity={0.75}>
-              <Text style={{ fontFamily: 'Outfit_500Medium', fontSize: 13, color: Colors.ocean }}>
-                Browse Programs
-              </Text>
-            </TouchableOpacity>
-          </Link>
-        </View>
+        <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 17, color: Colors.navy, marginBottom: 10 }}>
+          Daily Missions
+        </Text>
+        <Link href="/programs" asChild>
+          <TouchableOpacity activeOpacity={0.85} style={[PRIMARY_BUTTON, { marginBottom: 16 }]}>
+            <Text style={PRIMARY_BUTTON_TEXT}>Browse programs</Text>
+          </TouchableOpacity>
+        </Link>
         {programError && (
           <Text style={{ fontFamily: 'Outfit_400Regular', fontSize: 12, color: '#C0392B', marginBottom: 10 }}>
             {programError}

@@ -3,16 +3,17 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import Colors from '@/constants/colors';
+import { PRIMARY_BUTTON, PRIMARY_BUTTON_TEXT } from '@/constants/primaryButton';
 import { supabase } from '@/lib/supabase';
 
 const INPUT = {
@@ -36,6 +37,7 @@ const LABEL = {
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [step, setStep] = useState<1 | 2>(1);
   const [displayName, setDisplayName] = useState('');
   const [dogName, setDogName] = useState('');
@@ -123,11 +125,18 @@ export default function OnboardingScreen() {
     <SafeAreaView className="flex-1" style={{ backgroundColor: Colors.snow }}>
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
       >
         <ScrollView
-          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 32 }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingHorizontal: 24,
+            paddingTop: 24,
+            paddingBottom: Math.max(insets.bottom + 280, 320),
+          }}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
           showsVerticalScrollIndicator={false}
         >
           <View className="items-center mb-8">
@@ -183,20 +192,13 @@ export default function OnboardingScreen() {
                     returnKeyType="done"
                   />
                 </View>
-                <Pressable
+                <TouchableOpacity
                   onPress={nextStep}
-                  style={({ pressed }) => ({
-                    height: 52,
-                    borderRadius: 14,
-                    backgroundColor: pressed ? '#152E4A' : Colors.ocean,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  })}
+                  activeOpacity={0.85}
+                  style={PRIMARY_BUTTON}
                 >
-                  <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 16, color: Colors.white }}>
-                    Continue
-                  </Text>
-                </Pressable>
+                  <Text style={PRIMARY_BUTTON_TEXT}>Next</Text>
+                </TouchableOpacity>
               </>
             ) : (
               <>
@@ -247,44 +249,38 @@ export default function OnboardingScreen() {
                 </View>
 
                 <View className="flex-row gap-3">
-                  <Pressable
+                  <TouchableOpacity
                     onPress={() => setStep(1)}
-                    style={({ pressed }) => ({
+                    activeOpacity={0.85}
+                    style={{
                       flex: 1,
-                      height: 52,
-                      borderRadius: 14,
+                      height: 48,
+                      borderRadius: 12,
                       borderWidth: 1.5,
                       borderColor: Colors.sky,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      backgroundColor: pressed ? Colors.iceBlue : Colors.white,
-                    })}
+                      backgroundColor: Colors.white,
+                    }}
                   >
                     <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 15, color: Colors.ocean }}>
                       Back
                     </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={completeOnboarding}
-                    disabled={loading}
-                    style={({ pressed }) => ({
-                      flex: 1.5,
-                      height: 52,
-                      borderRadius: 14,
-                      backgroundColor: pressed ? '#152E4A' : Colors.ocean,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      opacity: loading ? 0.7 : 1,
-                    })}
-                  >
-                    {loading ? (
-                      <ActivityIndicator color={Colors.white} />
-                    ) : (
-                      <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 16, color: Colors.white }}>
-                        Finish setup
-                      </Text>
-                    )}
-                  </Pressable>
+                  </TouchableOpacity>
+                  <View style={{ flex: 1.5 }}>
+                    <TouchableOpacity
+                      onPress={completeOnboarding}
+                      disabled={loading}
+                      activeOpacity={0.85}
+                      style={[PRIMARY_BUTTON, { opacity: loading ? 0.7 : 1 }]}
+                    >
+                      {loading ? (
+                        <ActivityIndicator color={Colors.white} />
+                      ) : (
+                        <Text style={PRIMARY_BUTTON_TEXT}>Finish</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </>
             )}

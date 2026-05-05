@@ -125,6 +125,7 @@ export default function DiscoverScreen() {
     <SafeAreaView className="flex-1" style={{ backgroundColor: Colors.snow }}>
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 24, color: Colors.navy, marginBottom: 4 }}>
@@ -169,7 +170,13 @@ export default function DiscoverScreen() {
               <ActivityIndicator color={Colors.ocean} />
             </View>
           ) : (
-            <MapView style={{ height: 220, width: '100%' }} initialRegion={region} region={region}>
+            <MapView
+              style={{ height: 220, width: '100%' }}
+              initialRegion={region}
+              region={region}
+              scrollEnabled
+              zoomEnabled
+            >
               <Marker coordinate={{ latitude: region.latitude, longitude: region.longitude }} title="You are here" />
               {filteredSpots.map((spot) => (
                 <Marker

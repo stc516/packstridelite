@@ -7,12 +7,15 @@ import {
   ScrollView,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
-import { supabase } from '@/lib/supabase';
+import { signInWithGoogle } from '@/lib/googleAuth';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import Colors from '@/constants/colors';
+import { PRIMARY_BUTTON, PRIMARY_BUTTON_TEXT } from '@/constants/primaryButton';
 
 const INPUT = {
   height: 52,
@@ -34,15 +37,23 @@ const LABEL = {
 } as const;
 
 export default function SignupScreen() {
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   async function handleSignup() {
     setError(null);
+    if (!isSupabaseConfigured) {
+      setError(
+        'Missing Supabase configuration. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to .env.local, then restart Expo: npx expo start --clear'
+      );
+      return;
+    }
     if (!email.trim() || !password) {
       setError('Please fill in all fields.');
       return;
@@ -56,17 +67,43 @@ export default function SignupScreen() {
       return;
     }
     setLoading(true);
-    const { error: authError } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-    });
-    setLoading(false);
-    if (authError) {
-      setError(authError.message);
+    try {
+      const { error: authError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+      });
+      if (authError) {
+        setError(authError.message);
+        return;
+      }
+      setSuccess(true);
+    } catch (err) {
+      setError(
+        err instanceof TypeError
+          ? 'Network error — check Supabase URL and anon key in .env.local, then restart Expo with --clear.'
+          : err instanceof Error
+            ? err.message
+            : 'Something went wrong.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleGoogle() {
+    setError(null);
+    if (!isSupabaseConfigured) {
+      setError(
+        'Missing Supabase configuration. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to .env.local, then restart Expo: npx expo start --clear'
+      );
       return;
     }
-    // Supabase may require email confirmation; show a success message
-    setSuccess(true);
+    setGoogleLoading(true);
+    const result = await signInWithGoogle();
+    setGoogleLoading(false);
+    if (!result.ok && !result.cancelled) {
+      setError(result.message);
+    }
   }
 
   if (success) {
@@ -93,21 +130,12 @@ export default function SignupScreen() {
             {'\n'}Open it to activate your account.
           </Text>
           <Link href="/(auth)/login" asChild>
-            <Pressable
-              style={({ pressed }) => ({
-                marginTop: 28,
-                height: 52,
-                width: '100%',
-                borderRadius: 14,
-                backgroundColor: pressed ? '#152E4A' : Colors.ocean,
-                alignItems: 'center',
-                justifyContent: 'center',
-              })}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={[PRIMARY_BUTTON, { marginTop: 28 }]}
             >
-              <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 16, color: Colors.white }}>
-                Back to Log In
-              </Text>
-            </Pressable>
+              <Text style={PRIMARY_BUTTON_TEXT}>Back to log in</Text>
+            </TouchableOpacity>
           </Link>
         </View>
       </SafeAreaView>
@@ -118,12 +146,19 @@ export default function SignupScreen() {
     <SafeAreaView className="flex-1" style={{ backgroundColor: Colors.snow }}>
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
       >
         <ScrollView
-          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 32 }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingHorizontal: 24,
+            paddingTop: 24,
+            paddingBottom: Math.max(insets.bottom + 280, 320),
+          }}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+          keyboardDismissMode="interactive"
+          showsVerticalScrollIndicator={true}
         >
           {/* wordmark */}
           <View className="items-center mb-10">
@@ -134,6 +169,21 @@ export default function SignupScreen() {
               Train together. Thrive together.
             </Text>
           </View>
+
+          {!isSupabaseConfigured && (
+            <Text
+              style={{
+                fontFamily: 'Outfit_400Regular',
+                fontSize: 13,
+                color: '#C0392B',
+                marginBottom: 16,
+                textAlign: 'center',
+                lineHeight: 18,
+              }}
+            >
+              Supabase env vars are missing or empty. Add them to .env.local and restart with npx expo start --clear.
+            </Text>
+          )}
 
           {/* card */}
           <View
@@ -177,12 +227,16 @@ export default function SignupScreen() {
                 placeholder="Min. 8 characters"
                 placeholderTextColor={Colors.mist}
                 secureTextEntry
-                textContentType="newPassword"
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="off"
+                textContentType="oneTimeCode"
+                passwordRules=""
               />
             </View>
 
             {/* confirm password */}
-            <View className="mb-6">
+            <View className="mb-5">
               <Text style={LABEL}>Confirm Password</Text>
               <TextInput
                 style={INPUT}
@@ -191,18 +245,21 @@ export default function SignupScreen() {
                 placeholder="Re-enter password"
                 placeholderTextColor={Colors.mist}
                 secureTextEntry
-                textContentType="newPassword"
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="off"
+                textContentType="oneTimeCode"
+                passwordRules=""
               />
             </View>
 
-            {/* inline error */}
             {error && (
               <Text
                 style={{
                   fontFamily: 'Outfit_400Regular',
                   fontSize: 13,
                   color: '#C0392B',
-                  marginBottom: 16,
+                  marginBottom: 12,
                   lineHeight: 18,
                 }}
               >
@@ -210,25 +267,52 @@ export default function SignupScreen() {
               </Text>
             )}
 
-            {/* submit */}
-            <Pressable
+            <TouchableOpacity
               onPress={handleSignup}
-              disabled={loading}
+              disabled={loading || googleLoading}
+              activeOpacity={0.85}
+              style={[PRIMARY_BUTTON, { opacity: loading || googleLoading ? 0.7 : 1 }]}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={PRIMARY_BUTTON_TEXT}>Create account</Text>
+              )}
+            </TouchableOpacity>
+
+            <View className="flex-row items-center my-5">
+              <View className="flex-1 h-px" style={{ backgroundColor: Colors.sky }} />
+              <Text style={{ fontFamily: 'Outfit_400Regular', fontSize: 13, color: Colors.mist, marginHorizontal: 12 }}>
+                or
+              </Text>
+              <View className="flex-1 h-px" style={{ backgroundColor: Colors.sky }} />
+            </View>
+
+            <Pressable
+              onPress={handleGoogle}
+              disabled={googleLoading || loading}
               style={({ pressed }) => ({
                 height: 52,
                 borderRadius: 14,
-                backgroundColor: pressed ? '#152E4A' : Colors.ocean,
+                borderWidth: 1.5,
+                borderColor: Colors.sky,
+                backgroundColor: pressed ? Colors.iceBlue : Colors.white,
                 alignItems: 'center',
                 justifyContent: 'center',
-                opacity: loading ? 0.7 : 1,
+                flexDirection: 'row',
+                gap: 8,
+                opacity: googleLoading || loading ? 0.7 : 1,
               })}
             >
-              {loading ? (
-                <ActivityIndicator color={Colors.white} />
+              {googleLoading ? (
+                <ActivityIndicator color={Colors.ocean} />
               ) : (
-                <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 16, color: Colors.white }}>
-                  Create Account
-                </Text>
+                <>
+                  <Text style={{ fontSize: 18 }}>G</Text>
+                  <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 15, color: Colors.navy }}>
+                    Continue with Google
+                  </Text>
+                </>
               )}
             </Pressable>
           </View>

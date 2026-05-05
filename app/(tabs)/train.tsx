@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -96,6 +96,7 @@ export default function TrainScreen() {
     <SafeAreaView className="flex-1" style={{ backgroundColor: Colors.snow }}>
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 24, color: Colors.navy, marginBottom: 4 }}>
@@ -121,8 +122,9 @@ export default function TrainScreen() {
               const progress = lessonCount > 0 ? completedCount / lessonCount : 0;
 
               return (
-                <Pressable
+                <TouchableOpacity
                   key={module.id}
+                  activeOpacity={0.85}
                   onPress={() => {
                     router.push({
                       pathname: '/train/[moduleSlug]',
@@ -174,7 +176,7 @@ export default function TrainScreen() {
                   <Text style={{ fontFamily: 'Outfit_500Medium', fontSize: 12, color: Colors.mist, marginTop: 8 }}>
                     {completedCount}/{lessonCount} lessons completed
                   </Text>
-                </Pressable>
+                </TouchableOpacity>
               );
             })}
           </View>

@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/colors';
+import { PRIMARY_BUTTON, PRIMARY_BUTTON_TEXT } from '@/constants/primaryButton';
 import { adventurePrograms } from '@/data/adventurePrograms';
 import { trainingPrograms } from '@/data/trainingPrograms';
 import { supabase } from '@/lib/supabase';
@@ -68,6 +69,7 @@ export default function ProgramsScreen() {
     <SafeAreaView className="flex-1" style={{ backgroundColor: Colors.snow }}>
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 44 }}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 24, color: Colors.navy, marginBottom: 4 }}>
@@ -120,7 +122,7 @@ export default function ProgramsScreen() {
                   </Text>
 
                   {'locations' in program && program.locations.length > 0 && (
-                    <View className="gap-2 mb-10">
+                    <View className="gap-2 mb-4">
                       {program.locations.map((location) => (
                         <View key={`${program.id}-${location.name}`}>
                           <Text style={{ fontFamily: 'Outfit_500Medium', color: Colors.navy }}>
@@ -139,24 +141,18 @@ export default function ProgramsScreen() {
                     </View>
                   )}
 
-                  <Pressable
+                  <TouchableOpacity
                     onPress={() =>
                       handleEnroll(program.id, section.programType, program.title, program.duration_days)
                     }
                     disabled={loadingProgramId === program.id}
-                    style={({ pressed }) => ({
-                      height: 48,
-                      borderRadius: 12,
-                      backgroundColor: pressed ? '#152E4A' : Colors.ocean,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      opacity: loadingProgramId === program.id ? 0.7 : 1,
-                    })}
+                    activeOpacity={0.85}
+                    style={[PRIMARY_BUTTON, { opacity: loadingProgramId === program.id ? 0.7 : 1 }]}
                   >
-                    <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 15, color: Colors.white }}>
+                    <Text style={[PRIMARY_BUTTON_TEXT, { fontSize: 15 }]}>
                       {loadingProgramId === program.id ? 'Enrolling...' : 'Enroll'}
                     </Text>
-                  </Pressable>
+                  </TouchableOpacity>
                 </View>
               ))}
             </View>

@@ -1,5 +1,6 @@
 import '../global.css';
 
+import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
@@ -9,6 +10,8 @@ import { Nunito_600SemiBold, Nunito_700Bold } from '@expo-google-fonts/nunito';
 import { Outfit_400Regular, Outfit_500Medium, Outfit_700Bold } from '@expo-google-fonts/outfit';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
+
+WebBrowser.maybeCompleteAuthSession();
 
 function AuthGate() {
   const { session, initialized, setSession, setInitialized } = useAuthStore();

@@ -2,15 +2,19 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import DogAvatarGroup from '@/components/DogAvatarGroup';
 import Colors from '@/constants/colors';
+import { PRIMARY_BUTTON, PRIMARY_BUTTON_TEXT } from '@/constants/primaryButton';
 import { supabase } from '@/lib/supabase';
 import { calculateAdventureXp } from '@/lib/xp';
 import { useAuthStore } from '@/store/authStore';
@@ -62,6 +66,7 @@ function toDateOnlyOffset(base: Date, dayOffset: number): string {
 }
 
 export default function LogScreen() {
+  const insets = useSafeAreaInsets();
   const session = useAuthStore((state) => state.session);
 
   const [dogs, setDogs] = useState<DogRow[]>([]);
@@ -262,11 +267,21 @@ export default function LogScreen() {
 
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: Colors.snow }}>
-      <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 }}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
       >
+        <ScrollView
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingTop: 16,
+            paddingBottom: Math.max(insets.bottom + 280, 320),
+          }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+        >
         <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 24, color: Colors.navy, marginBottom: 4 }}>
           Log Adventure
         </Text>
@@ -430,28 +445,21 @@ export default function LogScreen() {
             </Text>
           )}
 
-          <Pressable
+          <TouchableOpacity
             onPress={handleSubmit}
             disabled={submitting || dogsLoading || dogs.length === 0}
-            style={({ pressed }) => ({
-              height: 52,
-              borderRadius: 14,
-              backgroundColor: pressed ? '#152E4A' : Colors.ocean,
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: submitting || dogsLoading || dogs.length === 0 ? 0.7 : 1,
-            })}
+            activeOpacity={0.85}
+            style={[PRIMARY_BUTTON, { opacity: submitting || dogsLoading || dogs.length === 0 ? 0.7 : 1 }]}
           >
             {submitting ? (
               <ActivityIndicator color={Colors.white} />
             ) : (
-              <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 16, color: Colors.white }}>
-                Save Adventure
-              </Text>
+              <Text style={PRIMARY_BUTTON_TEXT}>Save adventure</Text>
             )}
-          </Pressable>
+          </TouchableOpacity>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {earnedXp !== null && (
         <View

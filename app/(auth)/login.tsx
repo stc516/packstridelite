@@ -7,12 +7,15 @@ import {
   ScrollView,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
-import { supabase } from '@/lib/supabase';
+import { signInWithGoogle } from '@/lib/googleAuth';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import Colors from '@/constants/colors';
+import { PRIMARY_BUTTON, PRIMARY_BUTTON_TEXT } from '@/constants/primaryButton';
 
 const INPUT = {
   height: 52,
@@ -34,39 +37,81 @@ const LABEL = {
 } as const;
 
 export default function LoginScreen() {
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleLogin() {
     setError(null);
+    if (!isSupabaseConfigured) {
+      setError(
+        'Missing Supabase configuration. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to .env.local, then restart Expo: npx expo start --clear'
+      );
+      return;
+    }
     if (!email.trim() || !password) {
       setError('Please enter your email and password.');
       return;
     }
     setLoading(true);
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-    setLoading(false);
-    if (authError) {
-      setError(authError.message);
+    try {
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (authError) {
+        setError(authError.message);
+      }
+    } catch (err) {
+      setError(
+        err instanceof TypeError
+          ? 'Network error — check Supabase URL in .env.local and restart Expo with --clear.'
+          : err instanceof Error
+            ? err.message
+            : 'Something went wrong.'
+      );
+    } finally {
+      setLoading(false);
     }
     // on success, onAuthStateChange in _layout fires → redirects to (tabs)
+  }
+
+  async function handleGoogle() {
+    setError(null);
+    if (!isSupabaseConfigured) {
+      setError(
+        'Missing Supabase configuration. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to .env.local, then restart Expo: npx expo start --clear'
+      );
+      return;
+    }
+    setGoogleLoading(true);
+    const result = await signInWithGoogle();
+    setGoogleLoading(false);
+    if (!result.ok && !result.cancelled) {
+      setError(result.message);
+    }
   }
 
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: Colors.snow }}>
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
       >
         <ScrollView
-          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 32 }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingHorizontal: 24,
+            paddingTop: 24,
+            paddingBottom: Math.max(insets.bottom + 220, 260),
+          }}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+          keyboardDismissMode="interactive"
+          showsVerticalScrollIndicator={true}
         >
           {/* wordmark */}
           <View className="items-center mb-10">
@@ -77,6 +122,21 @@ export default function LoginScreen() {
               Train together. Thrive together.
             </Text>
           </View>
+
+          {!isSupabaseConfigured && (
+            <Text
+              style={{
+                fontFamily: 'Outfit_400Regular',
+                fontSize: 13,
+                color: '#C0392B',
+                marginBottom: 16,
+                textAlign: 'center',
+                lineHeight: 18,
+              }}
+            >
+              Supabase env vars are missing or empty. Add them to .env.local and restart with npx expo start --clear.
+            </Text>
+          )}
 
           {/* card */}
           <View
@@ -121,6 +181,8 @@ export default function LoginScreen() {
                 placeholderTextColor={Colors.mist}
                 secureTextEntry
                 textContentType="password"
+                returnKeyType="go"
+                onSubmitEditing={handleLogin}
               />
             </View>
 
@@ -139,25 +201,52 @@ export default function LoginScreen() {
               </Text>
             )}
 
-            {/* submit */}
-            <Pressable
+            <TouchableOpacity
               onPress={handleLogin}
-              disabled={loading}
-              style={({ pressed }) => ({
-                height: 52,
-                borderRadius: 14,
-                backgroundColor: pressed ? '#152E4A' : Colors.ocean,
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: loading ? 0.7 : 1,
-              })}
+              disabled={loading || googleLoading}
+              activeOpacity={0.85}
+              style={[PRIMARY_BUTTON, { opacity: loading || googleLoading ? 0.7 : 1 }]}
             >
               {loading ? (
                 <ActivityIndicator color={Colors.white} />
               ) : (
-                <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 16, color: Colors.white }}>
-                  Log In
-                </Text>
+                <Text style={PRIMARY_BUTTON_TEXT}>Log in</Text>
+              )}
+            </TouchableOpacity>
+
+            <View className="flex-row items-center my-5">
+              <View className="flex-1 h-px" style={{ backgroundColor: Colors.sky }} />
+              <Text style={{ fontFamily: 'Outfit_400Regular', fontSize: 13, color: Colors.mist, marginHorizontal: 12 }}>
+                or
+              </Text>
+              <View className="flex-1 h-px" style={{ backgroundColor: Colors.sky }} />
+            </View>
+
+            <Pressable
+              onPress={handleGoogle}
+              disabled={googleLoading || loading}
+              style={({ pressed }) => ({
+                height: 52,
+                borderRadius: 14,
+                borderWidth: 1.5,
+                borderColor: Colors.sky,
+                backgroundColor: pressed ? Colors.iceBlue : Colors.white,
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexDirection: 'row',
+                gap: 8,
+                opacity: googleLoading || loading ? 0.7 : 1,
+              })}
+            >
+              {googleLoading ? (
+                <ActivityIndicator color={Colors.ocean} />
+              ) : (
+                <>
+                  <Text style={{ fontSize: 18 }}>G</Text>
+                  <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 15, color: Colors.navy }}>
+                    Continue with Google
+                  </Text>
+                </>
               )}
             </Pressable>
           </View>
